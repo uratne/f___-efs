@@ -2,8 +2,8 @@ use std::env;
 
 use futures_util::{SinkExt, StreamExt};
 use log::{debug, error, info};
-use tungstenite::handshake::client::{generate_key, Request};
-use tokio_tungstenite::{connect_async, tungstenite::protocol::Message};
+use tungstenite::{handshake::client::{generate_key, Request}, Message};
+use tokio_tungstenite::connect_async;
 
 #[tokio::main]
 async fn main() {
@@ -59,18 +59,26 @@ async fn main() {
         }
     });
 
+    let (tx, mut rx) = tokio::sync::mpsc::channel(10);
+    let mut file_tailer = lib::client::FileTailer::new("log.txt".to_string()).await;
+    
+    tokio::spawn(async move {
+        file_tailer.tail(tx).await;
+    });
+    
     // Send messages
     let send_task = tokio::spawn(async move {
-        // Send a text message
-        let message = lib::message::Message::new("Hello from client!".to_string(), "test client".to_string());
-        let message = serde_json::to_string(&message).unwrap();
-        if let Err(e) = write.send(Message::Text(message.clone())).await {
-            error!("Error sending message: {}", e);
-        }
-
         // Keep the connection alive
         loop {
-            tokio::time::sleep(tokio::time::Duration::from_secs(5)).await;
+            let msg = match rx.recv().await {
+                Some(msg) => msg,
+                None => break,
+            };
+            let msg = serde_json::to_string(&msg).unwrap();
+            if let Err(e) = write.send(Message::Text(msg)).await {
+                error!("Error sending message: {}", e);
+                break;
+            }
             if let Err(e) = write.send(Message::Ping(vec![])).await {
                 error!("Error sending ping: {}", e);
                 break;
@@ -78,11 +86,7 @@ async fn main() {
         }
     });
 
-    let mut file_tailer = lib::client::FileTailer::new("log.txt".to_string()).await;
 
-    tokio::spawn(async move {
-        file_tailer.tail(0).await;
-    });
 
     // Wait for tasks to complete
     let _ = tokio::join!(receive_task, send_task);

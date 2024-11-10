@@ -4,11 +4,12 @@ use serde::{Deserialize, Serialize};
 pub struct Message {
     row: String,
     application: String,
+    replace_last_row: bool
 }
 
 impl Message {
-    pub fn new(row: String, application: String) -> Self {
-        Self { row, application }
+    pub fn new(row: String, application: String, replace_last_row: bool) -> Self {
+        Self { row, application, replace_last_row }
     }
 
     pub fn row(&self) -> &str {
