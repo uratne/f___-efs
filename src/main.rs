@@ -1,3 +1,4 @@
 fn main(){
-    println!("F🖕🖕🖕 EFS");
+    //TODO add the guide here
+    println!("🖕 EFS");
 }
