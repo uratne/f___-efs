@@ -1,7 +1,7 @@
 use std::env;
 
 use futures_util::{SinkExt, StreamExt};
-use log::{error, info};
+use log::{debug, error, info};
 use tungstenite::handshake::client::{generate_key, Request};
 use tokio_tungstenite::{connect_async, tungstenite::protocol::Message};
 
@@ -42,8 +42,8 @@ async fn main() {
                     match msg {
                         Message::Text(text) => info!("Received: {}", text),
                         Message::Binary(data) => info!("Received binary data: {:?}", data),
-                        Message::Ping(_) => info!("Received ping"),
-                        Message::Pong(_) => info!("Received pong"),
+                        Message::Ping(_) => debug!("Received ping"),
+                        Message::Pong(_) => debug!("Received pong"),
                         Message::Close(_) => {
                             info!("Server closed connection");
                             break;
@@ -76,6 +76,12 @@ async fn main() {
                 break;
             }
         }
+    });
+
+    let mut file_tailer = lib::client::FileTailer::new("log.txt".to_string()).await;
+
+    tokio::spawn(async move {
+        file_tailer.tail(0).await;
     });
 
     // Wait for tasks to complete
