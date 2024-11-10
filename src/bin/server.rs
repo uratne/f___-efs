@@ -42,6 +42,8 @@ async fn main() -> std::io::Result<()> {
             .wrap(cors)
             // API routes
             .service(hello)
+            // WebSocket route
+            .service(lib::server::listen)
             // In production, serve the built frontend
             .service(
                 fs::Files::new("/", "./frontend/build")
