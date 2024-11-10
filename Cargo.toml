@@ -1,0 +1,19 @@
+[package]
+name = "fefs"
+version = "0.0.1"
+edition = "2021"
+
+[[bin]]
+name = "server"
+path = "src/bin/server.rs"
+
+[[bin]]
+name = "client"
+path = "src/bin/client.rs"
+
+[lib]
+name = "lib"
+path = "src/lib.rs"
+
+[dependencies]
+tokio = { version = "*", features = ["full"] }
