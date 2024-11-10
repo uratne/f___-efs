@@ -1,3 +1,3 @@
 fn main(){
-    println!("F💣💣💣 EFS");
+    println!("F🖕🖕🖕 EFS");
 }
