@@ -1,13 +1,21 @@
+use std::env;
+
 use futures_util::{SinkExt, StreamExt};
+use log::{error, info};
 use tungstenite::handshake::client::{generate_key, Request};
 use tokio_tungstenite::{connect_async, tungstenite::protocol::Message};
 
 #[tokio::main]
 async fn main() {
-    let host = "localhost:8080";
-    let path = "/ws";
-    let uri = format!("ws://{}{}", host, path);
+    dotenv::dotenv().ok();
+    env_logger::init_from_env(env_logger::Env::new().default_filter_or("info"));
+    let host = env::var("HOST").unwrap_or_else(|_| "localhost".to_string());
+    let port = env::var("PORT").unwrap_or_else(|_| "8080".to_string());
+    let path = "ws";
+    let host = format!("{}:{}", host, port);
+    let uri = format!("ws://{}/{}", host, path);
 
+    info!("connecting to {}", uri);
     // Connect to WebSocket server
     let mut request = Request::builder()
         .uri(uri)
@@ -21,7 +29,7 @@ async fn main() {
 
     request.headers_mut().insert("api-key", "42".parse().unwrap());
     let (ws_stream, _) = connect_async(request).await.expect("Failed to connect");
-    println!("WebSocket connected");
+    info!("webSocket connected");
 
     // Split the WebSocket stream
     let (mut write, mut read) = ws_stream.split();
@@ -32,12 +40,12 @@ async fn main() {
             match message {
                 Ok(msg) => {
                     match msg {
-                        Message::Text(text) => println!("Received: {}", text),
-                        Message::Binary(data) => println!("Received binary data: {:?}", data),
-                        Message::Ping(_) => println!("Received ping"),
-                        Message::Pong(_) => println!("Received pong"),
+                        Message::Text(text) => info!("Received: {}", text),
+                        Message::Binary(data) => info!("Received binary data: {:?}", data),
+                        Message::Ping(_) => info!("Received ping"),
+                        Message::Pong(_) => info!("Received pong"),
                         Message::Close(_) => {
-                            println!("Server closed connection");
+                            info!("Server closed connection");
                             break;
                         },
                         Message::Frame(_) => println!("Received raw frame"),
@@ -57,14 +65,14 @@ async fn main() {
         let message = lib::message::Message::new("Hello from client!".to_string(), "test client".to_string());
         let message = serde_json::to_string(&message).unwrap();
         if let Err(e) = write.send(Message::Text(message.clone())).await {
-            eprintln!("Error sending message: {}", e);
+            error!("Error sending message: {}", e);
         }
 
         // Keep the connection alive
         loop {
             tokio::time::sleep(tokio::time::Duration::from_secs(5)).await;
             if let Err(e) = write.send(Message::Ping(vec![])).await {
-                eprintln!("Error sending ping: {}", e);
+                error!("Error sending ping: {}", e);
                 break;
             }
         }
