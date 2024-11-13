@@ -60,11 +60,19 @@ async fn main() {
     });
 
     let (tx, mut rx) = tokio::sync::mpsc::channel(10);
-    let mut file_tailer = lib::client::FileTailer::new("log.txt".to_string()).await;
+    let file_tailer = lib::client::FileTailer::new(r#"^log.*\.txt$"#.to_string(), ".".to_string()).await;
+
+    match file_tailer {
+        Some(mut file_tailer) => {
+            tokio::spawn(async move {
+                file_tailer.tail(tx).await;
+            });
+        }
+        None => {
+            error!("No file found");
+        }
+    }
     
-    tokio::spawn(async move {
-        file_tailer.tail(tx).await;
-    });
     
     // Send messages
     let send_task = tokio::spawn(async move {

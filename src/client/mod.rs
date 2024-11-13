@@ -1,20 +1,39 @@
-use std::{path::Path, time::Duration};
+use std::{fs, path::Path, time::Duration};
 
 use log::info;
-use tokio::{fs::File, io::{AsyncBufReadExt, AsyncSeekExt, BufReader}, sync::mpsc::Sender, time::sleep};
+use tokio::{fs::File, io::{AsyncBufReadExt, AsyncSeekExt, BufReader}, sync::mpsc::Sender, time::{self, sleep}};
 
 use crate::message::Message;
 
 pub struct FileTailer {
     reader: BufReader<File>,
     path: String,
+    regex: String,
+    dir: String
 }
 
 impl FileTailer {
-    pub async fn new(path: String) -> Self {
-        let file = File::open(&path).await.unwrap();
-        let reader = BufReader::new(file);
-        Self { reader, path }
+    pub async fn new(regex: String, dir: String) -> Option<Self> {
+        let mut files = fs::read_dir(dir.clone()).unwrap();
+        loop {
+            let file = files.next();
+            match file {
+                Some(file) => {
+                    let file = file.unwrap();
+                    let file_name = file.file_name().into_string().unwrap();
+                    if match_file_name(&file_name, &regex) {
+                        info!("Found file: {}", file_name);
+                        let file = File::open(&file_name).await.unwrap();
+                        let reader = BufReader::new(file);
+                        return Some(Self { reader, path: file_name, regex, dir })
+                    }
+                }
+                None => {
+                    break;
+                }
+            }
+        }
+        None
     }
 
 
@@ -26,27 +45,70 @@ impl FileTailer {
 
         let mut last_line = String::new();
         let mut end_by_new_line = true;
-        loop {
-            let mut line = String::new();
-            let bytes_read = self.reader.read_line(&mut line).await.unwrap();
 
-            if bytes_read == 0 {
-                sleep(Duration::from_millis(100)).await;
-                let path = Path::new(self.path.as_str());
-                let file = Path::exists(path);
-                if !file {
-                    info!("File not found: {}", self.path);
+        //TODO break on SIGTERM
+        loop {
+            loop {
+                if !self.read_line(&tx, &mut last_line, &mut end_by_new_line).await {
+                    last_line.clear();
+                    end_by_new_line = true;
                     break;
                 }
-            } else {
-                handle_line(line, &mut last_line, &mut end_by_new_line, &tx).await;
+            }
+
+            loop {
+                if self.find_next_file().await {
+                    break;
+                }
+                time::sleep(Duration::from_millis(100)).await;
             }
         }
-        info!("Tailing file {} ended", self.path);
+    }
+
+    async fn read_line(&mut self, tx: &Sender<Message>, last_line: &mut String, end_by_new_line: &mut bool) -> bool {
+        let mut line = String::new();
+        let bytes_read = self.reader.read_line(&mut line).await.unwrap();
+    
+        if bytes_read == 0 {
+            sleep(Duration::from_millis(100)).await;
+            let path = Path::new(self.path.as_str());
+            let file = Path::exists(path);
+            if !file {
+                info!("File removed: {}", self.path);
+                return false
+            }
+        } else {
+            process_line(line, &mut *last_line, &mut *end_by_new_line, &tx).await;
+        }    
+        true
+    }
+
+    async fn find_next_file(&mut self) -> bool {
+        let mut files = fs::read_dir(self.dir.clone()).unwrap();
+        loop {
+            let file = files.next();
+            match file {
+                Some(file) => {
+                    let file = file.unwrap();
+                    let file_name = file.file_name().into_string().unwrap();
+                    if match_file_name(&file_name, &self.regex) {
+                        info!("Found file: {}", file_name);
+                        let file = File::open(&file_name).await.unwrap();
+                        self.reader = BufReader::new(file);
+                        self.path = file_name;
+                        return true
+                    }
+                }
+                None => {
+                    break;
+                }
+            }
+        }
+        false
     }
 }
 
-async fn handle_line(mut line: String, last_line: &mut String, end_by_new_line: &mut bool, tx: &Sender<Message>) {
+async fn process_line(mut line: String, last_line: &mut String, end_by_new_line: &mut bool, tx: &Sender<Message>) {
     let replacent: &str = "👻🛸👻";
     line = line.replace('\n', replacent);
     let lines = line.split('👻');
@@ -77,4 +139,9 @@ async fn handle_line(mut line: String, last_line: &mut String, end_by_new_line: 
         info!("{}", line);
         *last_line = line.to_string();
     }
+}
+
+fn match_file_name(file_name: &str, regex: &str) -> bool {
+    let re = regex::Regex::new(regex).unwrap();
+    re.is_match(file_name)
 }
