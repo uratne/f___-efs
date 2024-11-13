@@ -56,7 +56,7 @@ impl FileTailer {
         //TODO break on SIGTERM
         loop {
             loop {
-                if !self.read_line(&tx, &mut last_line, &mut end_by_new_line).await {
+                if !self.read_line(&tx, &mut last_line, &mut end_by_new_line, &config).await {
                     last_line.clear();
                     end_by_new_line = true;
                     let sys_message = Message::System(SystemMessage::new(config.get_application(), SystemMessages::FileRemoved));
@@ -76,7 +76,7 @@ impl FileTailer {
         }
     }
 
-    async fn read_line(&mut self, tx: &Sender<Message>, last_line: &mut String, end_by_new_line: &mut bool) -> bool {
+    async fn read_line(&mut self, tx: &Sender<Message>, last_line: &mut String, end_by_new_line: &mut bool, config: &LogConfiguration) -> bool {
         let mut line = String::new();
         let bytes_read = self.reader.read_line(&mut line).await.unwrap();
     
@@ -89,7 +89,7 @@ impl FileTailer {
                 return false
             }
         } else {
-            process_line(line, &mut *last_line, &mut *end_by_new_line, &tx).await;
+            process_line(line, &mut *last_line, &mut *end_by_new_line, &tx, &config).await;
         }    
         true
     }
@@ -119,7 +119,7 @@ impl FileTailer {
     }
 }
 
-async fn process_line(mut line: String, last_line: &mut String, end_by_new_line: &mut bool, tx: &Sender<Message>) {
+async fn process_line(mut line: String, last_line: &mut String, end_by_new_line: &mut bool, tx: &Sender<Message>, config: &LogConfiguration) {
     let replacent: &str = "👻🛸👻";
     line = line.replace('\n', replacent);
     let lines = line.split('👻');
@@ -139,7 +139,7 @@ async fn process_line(mut line: String, last_line: &mut String, end_by_new_line:
             line = &last_line;
             true
         };
-        let message = DataMessage::new(line.to_string(), "application".to_string(), append);
+        let message = DataMessage::new(line.to_string(), config.get_application(), append);
         let message = Message::Data(message);
         match tx.send(message).await{
             Ok(_) => {}
