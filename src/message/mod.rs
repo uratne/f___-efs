@@ -1,12 +1,16 @@
 use chrono::NaiveDateTime;
 use serde::{Deserialize, Serialize};
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Serialize, Deserialize, PartialEq, Eq)]
 pub enum SystemMessages {
     FileFound,
     FileRemoved,
     NewFileFound,
-    TailingStarted
+    TailingStarted,
+    Start,
+    Stop,
+    Pause,
+    Resume
 }
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -38,10 +42,30 @@ impl SystemMessage {
     pub fn new(application: String, message: SystemMessages) -> Self {
         Self { application, message, timestamp: chrono::Utc::now().naive_utc() }
     }
+
+    pub fn message(&self) -> &SystemMessages {
+        &self.message
+    }
 }
 
 #[derive(Debug, Serialize, Deserialize)]
 pub enum Message {
     Data(DataMessage),
     System(SystemMessage)
+}
+
+impl Message {
+    pub fn data(&self) -> Option<&DataMessage> {
+        match self {
+            Message::Data(data) => Some(data),
+            _ => None
+        }
+    }
+
+    pub fn system(&self) -> Option<&SystemMessage> {
+        match self {
+            Message::System(system) => Some(system),
+            _ => None
+        }
+    }
 }

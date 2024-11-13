@@ -5,19 +5,23 @@ use actix_ws::{AggregatedMessage, ProtocolError, Session};
 use log::{error, info};
 use tokio::time::sleep;
 
-use crate::message::Message;
+use crate::message::{Message, SystemMessage, SystemMessages};
 
 #[actix_web::get("/ws")]
 pub async fn listen(req: HttpRequest, stream: web::Payload) -> Result<HttpResponse, Error> {
     info!("WebSocket connection request from {}", req.peer_addr().unwrap());
     let (res, mut session, stream) = actix_ws::handle(&req, stream)?;
+    let application = req.headers().get("Application").unwrap().to_str().unwrap().to_string();
     
     let mut stream = stream
     .aggregate_continuations()
     // aggregate continuation frames up to 1MiB
     .max_continuation_size(2_usize.pow(20));
     
-    info!("WebSocket connection established");
+    info!("WebSocket connection established for application: {}", application);
+
+    let start_message = Message::System(SystemMessage::new(application, SystemMessages::Start));
+    session.text(serde_json::to_string(&start_message).unwrap()).await.unwrap();
 
     let mut ping_session = session.clone();
     let handle = rt::spawn(async move {
