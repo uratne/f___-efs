@@ -1,4 +1,4 @@
-use std::{fs, path::Path, time::Duration};
+use std::{fs, path::Path, time::{Duration, SystemTime}};
 
 use configuration::LogConfiguration;
 use log::info;
@@ -13,7 +13,8 @@ pub struct FileTailer {
     reader: BufReader<File>,
     path: String,
     regex: String,
-    dir: String
+    dir: String,
+    created_date_time: SystemTime
 }
 
 impl FileTailer {
@@ -28,8 +29,9 @@ impl FileTailer {
                     if match_file_name(&file_name, &regex) {
                         info!("Found file: {}", file_name);
                         let file = File::open(&file_name).await.unwrap();
+                        let created_date_time = file.metadata().await.unwrap().created().unwrap();
                         let reader = BufReader::new(file);
-                        return Some(Self { reader, path: file_name, regex, dir })
+                        return Some(Self { reader, path: file_name, regex, dir, created_date_time })
                     }
                 }
                 None => {
@@ -83,9 +85,15 @@ impl FileTailer {
         if bytes_read == 0 {
             sleep(Duration::from_millis(100)).await;
             let path = Path::new(self.path.as_str());
-            let file = Path::exists(path);
-            if !file {
+            let exists = Path::exists(path);
+            if !exists {
                 info!("File removed: {}", self.path);
+                return false
+            }
+            let file = File::open(&self.path).await.unwrap();
+            let same_file = file.metadata().await.unwrap().created().unwrap() == self.created_date_time;
+            if !same_file {
+                info!("File replaced: {}", self.path);
                 return false
             }
         } else {
@@ -105,6 +113,8 @@ impl FileTailer {
                     if match_file_name(&file_name, &self.regex) {
                         info!("Found file: {}", file_name);
                         let file = File::open(&file_name).await.unwrap();
+                        let created_date_time = file.metadata().await.unwrap().created().unwrap();
+                        self.created_date_time = created_date_time;
                         self.reader = BufReader::new(file);
                         self.path = file_name;
                         return true
