@@ -1,0 +1,13 @@
+{
+    "configs": [
+        {
+        "app_name": "Fefs",
+        "log_file_dir": ".",
+        "log_file_name_regex": "log*.txt",
+        "server_host": "localhost",
+        "server_port": 8080,
+        "server_path": "ws",
+        "channel_buffer": 10
+        }
+    ]
+}

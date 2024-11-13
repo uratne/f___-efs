@@ -1,9 +1,13 @@
 use std::{fs, path::Path, time::Duration};
 
+use configuration::LogConfiguration;
 use log::info;
 use tokio::{fs::File, io::{AsyncBufReadExt, AsyncSeekExt, BufReader}, sync::mpsc::Sender, time::{self, sleep}};
 
 use crate::message::{DataMessage, Message, SystemMessage, SystemMessages};
+
+pub mod process;
+pub mod configuration;
 
 pub struct FileTailer {
     reader: BufReader<File>,
@@ -37,11 +41,11 @@ impl FileTailer {
     }
 
 
-    pub async fn tail(&mut self, tx: Sender<Message>) {
-        //TODO find about END(value), what value is
+    pub async fn tail(&mut self, tx: Sender<Message>, config: LogConfiguration) {
+
         self.reader.seek(std::io::SeekFrom::End(0)).await.unwrap();
 
-        let sys_message = Message::System(SystemMessage::new("application".to_string(), SystemMessages::TailingStarted));
+        let sys_message = Message::System(SystemMessage::new(config.get_application(), SystemMessages::TailingStarted));
         tx.send(sys_message).await.unwrap();
 
         info!("Tailing file: {}", self.path);
@@ -55,7 +59,7 @@ impl FileTailer {
                 if !self.read_line(&tx, &mut last_line, &mut end_by_new_line).await {
                     last_line.clear();
                     end_by_new_line = true;
-                    let sys_message = Message::System(SystemMessage::new("application".to_string(), SystemMessages::FileRemoved));
+                    let sys_message = Message::System(SystemMessage::new(config.get_application(), SystemMessages::FileRemoved));
                     tx.send(sys_message).await.unwrap();
                     break;
                 }
@@ -63,7 +67,7 @@ impl FileTailer {
 
             loop {
                 if self.find_next_file().await {
-                    let sys_message = Message::System(SystemMessage::new("application".to_string(), SystemMessages::NewFileFound));
+                    let sys_message = Message::System(SystemMessage::new(config.get_application(), SystemMessages::NewFileFound));
                     tx.send(sys_message).await.unwrap();
                     break;
                 }
