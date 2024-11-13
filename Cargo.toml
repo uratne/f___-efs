@@ -32,3 +32,4 @@ tokio = { version = "1.41.1", features = ["full"] }
 tokio-tungstenite = "0.24.0"
 tungstenite = "0.24.0"
 regex = "1.11.1"
+chrono = { version = "0.4.38", features = ["serde"] }

@@ -3,7 +3,7 @@ use std::{fs, path::Path, time::Duration};
 use log::info;
 use tokio::{fs::File, io::{AsyncBufReadExt, AsyncSeekExt, BufReader}, sync::mpsc::Sender, time::{self, sleep}};
 
-use crate::message::Message;
+use crate::message::{DataMessage, Message, SystemMessage, SystemMessages};
 
 pub struct FileTailer {
     reader: BufReader<File>,
@@ -41,6 +41,9 @@ impl FileTailer {
         //TODO find about END(value), what value is
         self.reader.seek(std::io::SeekFrom::End(0)).await.unwrap();
 
+        let sys_message = Message::System(SystemMessage::new("application".to_string(), SystemMessages::TailingStarted));
+        tx.send(sys_message).await.unwrap();
+
         info!("Tailing file: {}", self.path);
 
         let mut last_line = String::new();
@@ -52,12 +55,16 @@ impl FileTailer {
                 if !self.read_line(&tx, &mut last_line, &mut end_by_new_line).await {
                     last_line.clear();
                     end_by_new_line = true;
+                    let sys_message = Message::System(SystemMessage::new("application".to_string(), SystemMessages::FileRemoved));
+                    tx.send(sys_message).await.unwrap();
                     break;
                 }
             }
 
             loop {
                 if self.find_next_file().await {
+                    let sys_message = Message::System(SystemMessage::new("application".to_string(), SystemMessages::NewFileFound));
+                    tx.send(sys_message).await.unwrap();
                     break;
                 }
                 time::sleep(Duration::from_millis(100)).await;
@@ -128,7 +135,8 @@ async fn process_line(mut line: String, last_line: &mut String, end_by_new_line:
             line = &last_line;
             true
         };
-        let message = Message::new(line.to_string(), "application".to_string(), append);
+        let message = DataMessage::new(line.to_string(), "application".to_string(), append);
+        let message = Message::Data(message);
         match tx.send(message).await{
             Ok(_) => {}
             Err(e) => {

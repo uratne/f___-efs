@@ -32,7 +32,7 @@ pub async fn listen(req: HttpRequest, stream: web::Payload) -> Result<HttpRespon
     });
 
     rt::spawn(async move {
-        let ping_interval = Duration::from_secs(10);
+        let ping_interval = Duration::from_secs(1);
         
         while let Ok(()) = ping_session.ping(b"ping").await {
             sleep(ping_interval).await;
