@@ -1,7 +1,9 @@
 use chrono::NaiveDateTime;
 use serde::{Deserialize, Serialize};
 
-#[derive(Debug, Serialize, Deserialize, PartialEq, Eq)]
+use crate::Applicatiton;
+
+#[derive(Debug, Serialize, Deserialize, PartialEq, Eq, Clone)]
 pub enum SystemMessages {
     FileFound,
     FileRemoved,
@@ -13,23 +15,23 @@ pub enum SystemMessages {
     Resume
 }
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct DataMessage {
     row: String,
-    application: String,
+    application: Applicatiton,
     replace_last_row: bool,
     timestamp: NaiveDateTime
 }
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct SystemMessage {
-    application: String,
+    application: Applicatiton,
     message: SystemMessages,
     timestamp: NaiveDateTime
 }
 
 impl DataMessage {
-    pub fn new(row: String, application: String, replace_last_row: bool) -> Self {
+    pub fn new(row: String, application: Applicatiton, replace_last_row: bool) -> Self {
         Self { row, application, replace_last_row, timestamp: chrono::Utc::now().naive_utc() }
     }
 
@@ -39,7 +41,7 @@ impl DataMessage {
 }
 
 impl SystemMessage {
-    pub fn new(application: String, message: SystemMessages) -> Self {
+    pub fn new(application: Applicatiton, message: SystemMessages) -> Self {
         Self { application, message, timestamp: chrono::Utc::now().naive_utc() }
     }
 
@@ -48,10 +50,11 @@ impl SystemMessage {
     }
 }
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Serialize, Deserialize, Clone)]
 pub enum Message {
     Data(DataMessage),
-    System(SystemMessage)
+    System(SystemMessage),
+    ClientDisconnect
 }
 
 impl Message {

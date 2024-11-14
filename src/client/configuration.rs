@@ -1,9 +1,11 @@
 use serde::{Deserialize, Serialize};
 
+use crate::Applicatiton;
+
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct LogConfiguration {
     #[serde(rename = "app_name")]
-    application: String,
+    application: Applicatiton,
     log_file_dir: String,
     log_file_name_regex: String,
     server_host: String,
@@ -13,7 +15,7 @@ pub struct LogConfiguration {
 }
 
 impl LogConfiguration {
-    pub fn get_application(&self) -> String {
+    pub fn get_application(&self) -> Applicatiton {
         self.application.clone()
     }
 

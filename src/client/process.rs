@@ -32,7 +32,7 @@ async fn process_until_error(config: LogConfiguration) {
         .header("Sec-WebSocket-Version", "13")
         .header("Upgrade", "websocket")
         .header("Connection", "Upgrade")
-        .header("Application", config.get_application())
+        .header("Application", config.get_application().to_string())
         .body(())
         .unwrap();
     
