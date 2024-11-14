@@ -6,27 +6,7 @@ Server will serve as the UI and will act as a router for the data coming in from
 
 ### Server Architecture
 #### In Development
-┌─────────────────┐     ┌──────────────────┐
-│ Vite Dev Server │     │   Actix Server   │
-│    :5173        │     │      :8080       │
-└───────┬─────────┘     └────────┬─────────┘
-        │                        │
-   Serves Frontend          Serves API
-   Hot Reloading            /api/hello
-        │                        │
-        │                        │
-        ▼                        ▼
-    Browser makes requests to both
+![In Development](./resources/fefs_in_development.jpg)
 
 #### In Production
-┌──────────────────────────────┐
-│        Actix Server          │
-│           :8080              │
-│   ┌─────────────┬────────┐   │
-│   │  Frontend   │  API   │   │
-│   │  (static)   │        │   │
-└───┴─────────────┴────────┴───┘
-            │
-            ▼
-    Browser makes all requests
-    to single server (:8080)
+![In Production](./resources/fefs_in_production.jpg)
