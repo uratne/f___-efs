@@ -1,7 +1,7 @@
 use std::{fs, path::Path, time::{Duration, SystemTime}};
 
 use configuration::LogConfiguration;
-use log::info;
+use log::{error, info};
 use tokio::{fs::File, io::{AsyncBufReadExt, AsyncSeekExt, BufReader}, sync::mpsc::Sender, time::{self, sleep}};
 
 use crate::message::{DataMessage, Message, SystemMessage, SystemMessages};
@@ -56,18 +56,29 @@ impl FileTailer {
         let mut end_by_new_line = true;
 
         //TODO break on SIGTERM
-        loop {
+        'OUTER: loop {
             loop {
+                if tx.is_closed() {
+                    break 'OUTER;
+                }
+
                 if !self.read_line(&tx, &mut last_line, &mut end_by_new_line, &config).await {
                     last_line.clear();
                     end_by_new_line = true;
                     let sys_message = Message::System(SystemMessage::new(config.get_application(), SystemMessages::FileRemoved));
+                    if tx.is_closed() {
+                        break 'OUTER;
+                    }   
                     tx.send(sys_message).await.unwrap();
                     break;
                 }
             }
 
             loop {
+                if tx.is_closed() {
+                    break 'OUTER;
+                }
+
                 if self.find_next_file().await {
                     let sys_message = Message::System(SystemMessage::new(config.get_application(), SystemMessages::NewFileFound));
                     tx.send(sys_message).await.unwrap();
@@ -76,6 +87,8 @@ impl FileTailer {
                 time::sleep(Duration::from_millis(100)).await;
             }
         }
+
+        info!("Tailing stopped");
     }
 
     async fn read_line(&mut self, tx: &Sender<Message>, last_line: &mut String, end_by_new_line: &mut bool, config: &LogConfiguration) -> bool {
@@ -151,10 +164,13 @@ async fn process_line(mut line: String, last_line: &mut String, end_by_new_line:
         };
         let message = DataMessage::new(line.to_string(), config.get_application(), append);
         let message = Message::Data(message);
+        if tx.is_closed() {
+            break;
+        }
         match tx.send(message).await{
             Ok(_) => {}
             Err(e) => {
-                info!("Error sending message: {}", e);
+                error!("Error sending message: {}", e);
                 break;
             }
         }
