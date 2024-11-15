@@ -1,4 +1,4 @@
-use std::{sync::Arc, time::Duration};
+use std::{collections::HashMap, sync::Arc, time::Duration};
 
 use actix_web::{body::MessageBody, get, rt, web, Error, HttpRequest, HttpResponse, Responder, Result};
 use actix_ws::{AggregatedMessage, ProtocolError, Session};
@@ -12,10 +12,24 @@ use crate::{message::{Message, SystemMessage, SystemMessages}, Applicatiton};
 
 pub mod broadcaster;
 
-#[get("/sse")]
-pub async fn data_outbound(req: HttpRequest, broadcasters: web::Data<Arc<Broadcasters>>) -> impl Responder {
-    let application = req.headers().get("Application").unwrap().to_str().unwrap();
-    let application: Applicatiton = serde_json::from_str(application).unwrap();
+#[get("/api/sse")]
+pub async fn data_outbound(_req: HttpRequest, broadcasters: web::Data<Arc<Broadcasters>>, query: web::Query<HashMap<String, String>>,) -> impl Responder {
+    let application = match query.get("application") {
+        Some(app_str) => {
+            match serde_json::from_str(app_str) {
+                Ok(app) => app,
+                Err(e) => {
+                    error!("Failed to parse application JSON: {}", e);
+                    return HttpResponse::BadRequest().finish();
+                }
+            }
+        },
+        None => {
+            error!("No application parameter provided");
+            return HttpResponse::BadRequest().finish();
+        }
+    };
+    
     let broadcasters = broadcasters.lock().await;
     let rx = match broadcasters.get(&application) {
         Some(tx) => tx.subscribe(),

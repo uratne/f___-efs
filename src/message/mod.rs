@@ -17,6 +17,8 @@ pub enum SystemMessages {
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct DataMessage {
+    #[serde(rename = "type")]
+    message_type: String,
     row: String,
     application: Applicatiton,
     replace_last_row: bool,
@@ -25,6 +27,8 @@ pub struct DataMessage {
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct SystemMessage {
+    #[serde(rename = "type")]
+    message_type: String,
     application: Applicatiton,
     message: SystemMessages,
     timestamp: NaiveDateTime
@@ -32,7 +36,7 @@ pub struct SystemMessage {
 
 impl DataMessage {
     pub fn new(row: String, application: Applicatiton, replace_last_row: bool) -> Self {
-        Self { row, application, replace_last_row, timestamp: chrono::Utc::now().naive_utc() }
+        Self { message_type: "Data".to_string(), row, application, replace_last_row, timestamp: chrono::Utc::now().naive_utc() }
     }
 
     pub fn row(&self) -> &str {
@@ -42,7 +46,7 @@ impl DataMessage {
 
 impl SystemMessage {
     pub fn new(application: Applicatiton, message: SystemMessages) -> Self {
-        Self { application, message, timestamp: chrono::Utc::now().naive_utc() }
+        Self { message_type: "System".to_string(), application, message, timestamp: chrono::Utc::now().naive_utc() }
     }
 
     pub fn message(&self) -> &SystemMessages {
