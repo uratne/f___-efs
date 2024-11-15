@@ -86,7 +86,22 @@ async fn process_until_error(config: LogConfiguration) {
             });
         }
         None => {
-            error!("No file found");
+            error!("No file found. Waiting for a file");
+            tokio::spawn(async move {
+                let mut file_tailer = loop {
+                    let file_tailer = FileTailer::new(config.get_log_file_name_regex(), config.get_log_file_dir()).await;
+                    match file_tailer {
+                        Some(file_tailer) => {
+                            break file_tailer
+                        }
+                        None => {
+                            time::sleep(time::Duration::from_secs(2)).await;
+                        }
+                    }
+                };
+
+                file_tailer.tail(tx, config).await;
+            });
         }
     }
     // Send messages

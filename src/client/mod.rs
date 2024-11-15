@@ -117,12 +117,14 @@ impl FileTailer {
 
     async fn find_next_file(&mut self) -> bool {
         let mut files = fs::read_dir(self.dir.clone()).unwrap();
+        error!("Regex: {}", self.regex);
         loop {
             let file = files.next();
             match file {
                 Some(file) => {
                     let file = file.unwrap();
                     let file_name = file.file_name().into_string().unwrap();
+                    info!("Checking file: {}", file_name);
                     if match_file_name(&file_name, &self.regex) {
                         info!("Found file: {}", file_name);
                         let file = File::open(&file_name).await.unwrap();
